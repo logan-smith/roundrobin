@@ -23,8 +23,12 @@ typedef struct node{
 
 void insertNode(node** head, node** tail);
 node* startsWithLetter(FILE* input, char firstLetter, node** tail);
+//3 functions for Shortest Job First Algorithm
+void runSJF(node* head);
+int findShortestBurst(int* burstArr, int length, int* arrivalArr, int* shortest, int time);
+int decrementBurstArr(int* burstArr, int index);
 
-int i=0;
+//int i=0;
 
 int main(int argc,char* argv[]){
 
@@ -84,16 +88,178 @@ int main(int argc,char* argv[]){
 
 
     //int i=0;
+/*
     while(head->next!=NULL){
         printf("%s\n",head->word);
         head=head->next;
     }
+*/
     fclose(inputFile);
+
+	//used for testing runSJF in development
+    //runSJF(head);
 
     return 0;
 
 }
 
+void runSJF(node* head)
+{
+    //get process count
+	head = head->next;
+	int pCount = atoi(head->word);	
+
+	//get runfor
+	head = head->next->next;
+	int runFor = atoi(head->word);
+	
+	//skip "use sjf"
+	head = head->next->next;
+
+	//declare array for names, arrival time, burst time
+	//	arrival time, and finish time(used for calculating turnaround
+	char nameArr[pCount][30];
+	int arrivalArr[pCount];
+	int burstArr[pCount];
+	int *waitArr = calloc(pCount, sizeof(int));
+	int finArr[pCount];
+		
+
+	//get process names, arrival, burst times
+	int i;
+	for(i=0;i<pCount;i++)
+	{
+		//get process name
+		head = head->next->next->next;
+		strcpy(nameArr[i], head->word);
+		
+		//get arrival time
+		head = head->next->next;
+		arrivalArr[i] = atoi(head->word);
+
+		//get burst time
+		head = head->next->next;
+		burstArr[i] = atoi(head->word);
+	}
+
+	//print first 3 lines
+	printf("%d processes\n",pCount);
+	printf("Using Shortest Job First (Pre)\n\n");
+
+	int shortest=-1;
+	int time = 0;
+	int finished;
+
+	while(time <= runFor)
+	{
+		//reset finished checker
+		finished = 0;		
+
+		//check for arrivals
+		for(i=0;i<pCount;i++)
+		{
+			if(arrivalArr[i] == time)
+			{
+				printf("Time %d: %s arrived\n", time, nameArr[i]);
+			}
+		}
+
+		//get shortest burst time
+		int prevShortest = shortest;
+		int found = findShortestBurst(burstArr, pCount, arrivalArr, &shortest, time);
+		//printf("Shortest is: %d \n",shortest);
+		
+		//if no process to run is found print idle
+		if(found == -1 && time < runFor)
+		{
+			printf("Time %d: IDLE\n",time);
+			time++;
+		}
+
+		//if still running the same process as before, don't print anything
+		else if(prevShortest == shortest)
+		{
+			//run the same process and add to the turnaround time
+			finished = decrementBurstArr(burstArr, shortest);
+			if(finished == 1)
+			{
+				printf("Time %d: %s finished\n", time+1, nameArr[shortest]);
+				finArr[shortest] = time+1;
+			}
+
+			//increase the wait time for other processes (not finished)
+			for(i=0;i<pCount;i++)
+			{
+				if(i!=shortest && burstArr[i] > 0 && arrivalArr[i] <= time)
+				{
+					waitArr[i]++;
+				}
+			}
+			time++;
+		}
+
+		//if new process is selected
+		else if(prevShortest !=shortest)
+		{
+			//select and run new process and add to the turnaround time
+			printf("Time %d: %s selected (burst %d)\n", time, nameArr[shortest], burstArr[shortest]);
+			finished = decrementBurstArr(burstArr, shortest);
+			if(finished == 1)
+			{
+				printf("Time %d: %s finished\n", time+1, nameArr[shortest]);
+				finArr[shortest] = time+1;
+			}
+
+			//increase the wait time for other processes (not finished)
+			for(i=0;i<pCount;i++)
+			{
+				if(i!=shortest && burstArr[i] > 0 && arrivalArr[i] <= time)
+				{
+					waitArr[i]++;
+				}
+			}
+			time++;
+		}
+	}
+
+	printf("Finished at time %d\n\n",runFor);
+	for(i=0;i<pCount;i++)
+	{
+		printf("%s wait %d turnaround %d\n", nameArr[i], waitArr[i], (finArr[i]-arrivalArr[i]));
+	}
+}
+
+int findShortestBurst(int* burstArr, int length, int* arrivalArr, int* shortest, int time)
+{
+	int tempShortest = 123456789;
+	int found = 0;
+	int i;
+	//find shortest
+	for(i=0;i<length;i++)
+	{
+		if((burstArr[i] < tempShortest) && (burstArr[i] > 0) && (arrivalArr[i] <= time))
+		{
+			tempShortest = burstArr[i];
+			*shortest = i;
+			found = 1;
+		}
+	}
+	if(found == 0)
+	{
+		return -1;
+	}
+	return 1;
+}
+
+int decrementBurstArr(int* burstArr, int index)
+{
+	burstArr[index]--;
+	if(burstArr[index] == 0)
+	{
+		return 1;
+	}
+	return 0;
+}
 
 
 node* startsWithLetter(FILE* input, char firstLetter, node** tail){
